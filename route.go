@@ -3,53 +3,52 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
-)
 
-type Post struct {
-	ID    int    `json:"id"`
-	Title string `json:"title"`
-	Text  string `json:"text"`
-}
+	"github.com/mthsiagian/firebase-rest-api/entity"
+	"github.com/mthsiagian/firebase-rest-api/repository"
+)
 
 var (
-	posts []Post
+	repo repository.PostRepository = repository.NewPostRepository()
 )
 
-func init() {
-	posts = []Post{Post{ID: 1, Title: "Title 1", Text: "Text 1"}}
-}
-
 func getPosts(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Content-type", "application/json")
-
-	result, err := json.Marshal(posts)
-
+	res.Header().Set("content-type", "application/json")
+	posts, err := repo.FindAll()
 	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
-		res.Write([]byte(`{"error" : "Error parsing the posts array"}`))
+		res.Write([]byte(`{"error" : "Error geting posts"}`))
 		return
 	}
 
+	if err = json.NewEncoder(res).Encode(posts); err != nil {
+		http.Error(res, "Error encoding posts", http.StatusInternalServerError)
+	}
+
 	res.WriteHeader(http.StatusOK)
-	res.Write(result)
+	json.NewEncoder(res).Encode(posts)
 }
 
 func addPost(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Content-type", "application/json")
-	var post Post
+	res.Header().Set("content-type", "application/json")
+	var post entity.Post
 	err := json.NewDecoder(req.Body).Decode(&post)
 
 	if err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
-		res.Write([]byte(`{ "error" : "Error parsing post"}`))
+		http.Error(res, "Error marshalling json", http.StatusInternalServerError)
 		return
 	}
 
-	post.ID = len(posts) + 1
-	posts = append(posts, post)
-	fmt.Println(posts)
+	post.ID = rand.Int63()
+	_, err = repo.Save(&post)
+
+	if err != nil {
+		http.Error(res, fmt.Sprintf("Error saving post: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	res.WriteHeader(http.StatusOK)
-	result, err := json.Marshal(post)
-	res.Write(result)
+	json.NewEncoder(res).Encode(post)
 }

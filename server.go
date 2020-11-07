@@ -5,10 +5,18 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/joho/godotenv"
+
 	"github.com/gorilla/mux"
 )
 
 func main() {
+	e := godotenv.Load()
+
+	if e != nil {
+		fmt.Println(e)
+	}
+
 	router := mux.NewRouter()
 
 	router.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
