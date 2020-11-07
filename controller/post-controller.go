@@ -1,22 +1,34 @@
-package main
+package controller
 
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 
 	"github.com/mthsiagian/firebase-rest-api/entity"
-	"github.com/mthsiagian/firebase-rest-api/repository"
+	"github.com/mthsiagian/firebase-rest-api/service"
 )
 
-var (
-	repo repository.PostRepository = repository.NewPostRepository()
-)
+// PostController interface
+type PostController interface {
+	GetPosts(w http.ResponseWriter, r *http.Request)
+	AddPost(w http.ResponseWriter, r *http.Request)
+}
 
-func getPosts(res http.ResponseWriter, req *http.Request) {
+type controller struct {
+	postService service.PostService
+}
+
+// NewPostController to create PostController instance
+func NewPostController(ps service.PostService) PostController {
+	return &controller{
+		postService: ps,
+	}
+}
+
+func (c *controller) GetPosts(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("content-type", "application/json")
-	posts, err := repo.FindAll()
+	posts, err := c.postService.FindAll()
 	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		res.Write([]byte(`{"error" : "Error geting posts"}`))
@@ -31,7 +43,7 @@ func getPosts(res http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(res).Encode(posts)
 }
 
-func addPost(res http.ResponseWriter, req *http.Request) {
+func (c *controller) AddPost(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("content-type", "application/json")
 	var post entity.Post
 	err := json.NewDecoder(req.Body).Decode(&post)
@@ -41,8 +53,7 @@ func addPost(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	post.ID = rand.Int63()
-	_, err = repo.Save(&post)
+	err = c.postService.AddPost(&post)
 
 	if err != nil {
 		http.Error(res, fmt.Sprintf("Error saving post: %v", err), http.StatusInternalServerError)
